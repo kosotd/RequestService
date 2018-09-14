@@ -12,6 +12,10 @@ Usage:
     String data = response.getData();
     Header[] headers = response.getHeaders();
 ```      
+```
+    HttpStatus expectedStatus = HttpStatus.ACCEPTED;
+    RequestService.build(timeout).post("http://site.com").send(expectedStatus);
+```
       
 Maven:
 ```

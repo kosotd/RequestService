@@ -14,8 +14,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicNameValuePair;
 import org.omg.CORBA.StringHolder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.io.StringWriter;
@@ -24,12 +22,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.logging.Logger;
 
 /**
  * Сервис для отправки com.kosotd.http запросов
  */
 public class RequestService {
-    private static Logger logger = LoggerFactory.getLogger(RequestService.class);
+    private static Logger logger = Logger.getLogger(RequestService.class.getName());
 
     /**
      * начало построения запроса
@@ -57,6 +57,17 @@ public class RequestService {
 
         private RequestBuilder(int httpRequestTimeout) {
             this.httpRequestTimeout = httpRequestTimeout;
+        }
+
+        /**
+         * создать GET запрос используя builder
+         * @param builder для установки параметров запроса
+         * @return класс содержащий методы для отправки запросов
+         */
+        public RequestSender get(Consumer<GetBuilder> builder) {
+            GetBuilder getBuilder = new GetBuilder(this);
+            builder.accept(getBuilder);
+            return getBuilder.getRequestSender();
         }
 
         /**
@@ -110,6 +121,17 @@ public class RequestService {
             HttpGet get = new HttpGet(urlWithParams.toString());
             headers.forEach(get::setHeader);
             return new RequestSender(httpRequestTimeout, get);
+        }
+
+        /**
+         * создать POST запрос используя builder
+         * @param builder для установки параметров запроса
+         * @return класс содержащий методы для отправки запросов
+         */
+        public RequestSender post(Consumer<PostBuilder> builder) {
+            PostBuilder postBuilder = new PostBuilder(this);
+            builder.accept(postBuilder);
+            return postBuilder.getRequestSender();
         }
 
         /**
@@ -205,7 +227,7 @@ public class RequestService {
          * @return ответ на запрос
          */
         public Response send() {
-            return send(HttpStatus.OK);
+            return send(HttpStatus.OK, false);
         }
 
         /**
@@ -215,15 +237,18 @@ public class RequestService {
          * @return ответ на запрос
          */
         public Response send(HttpStatus expectedStatus) {
-            Response result = new Response("", new Header[0]);
-            Integer responseStatus;
+            return send(expectedStatus, true);
+        }
+
+        private Response send(HttpStatus expectedStatus, boolean expectStatus) {
+            Response result = new Response("", new Header[0], 0);
 
             try {
                 RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(httpRequestTimeout).build();
                 try (CloseableHttpClient client = HttpClientBuilder.create().setDefaultRequestConfig(requestConfig).build()) {
 
                     try (CloseableHttpResponse response = client.execute(request)) {
-                        responseStatus = response.getStatusLine().getStatusCode();
+                        result.status = response.getStatusLine().getStatusCode();
                         result.setHeaders(response.getAllHeaders());
 
                         try (StringWriter writer = new StringWriter()) {
@@ -235,26 +260,127 @@ public class RequestService {
                     }
                 }
             } catch(Exception e){
-                logger.error(e.getMessage());
+                logger.info(e.getMessage());
                 throw new RuntimeException("Error while executing the query: " + e.getMessage());
             }
 
-            if (responseStatus != expectedStatus.value()) {
-                logger.error(result.getData());
-                throw new RuntimeException("Expected status is " + expectedStatus.value() + ", but actual " + responseStatus);
+            if (expectStatus && (result.status != expectedStatus.value())) {
+                logger.info(result.getData());
+                throw new RuntimeException("Expected status is " + expectedStatus.value() + ", but actual " + result.status);
             }
 
             return result;
         }
     }
 
+    public static class GetBuilder {
+
+        private RequestBuilder requestBuilder;
+        private String url;
+        private Map<String, String> params = new HashMap<>();
+        private Map<String, String> headers = new HashMap<>();
+
+        private GetBuilder(RequestBuilder requestBuilder) {
+            this.requestBuilder = requestBuilder;
+        }
+
+        public GetBuilder setUrl(String url) {
+            this.url = url;
+            return this;
+        }
+
+        public GetBuilder addParam(String name, String value) {
+            params.put(name, value);
+            return this;
+        }
+
+        public GetBuilder setParams(Map<String, String> params) {
+            this.params.clear();
+            this.params.putAll(params);
+            return this;
+        }
+
+        public GetBuilder addHeader(String name, String value) {
+            headers.put(name, value);
+            return this;
+        }
+
+        public GetBuilder setHeaders(Map<String, String> headers) {
+            this.headers.clear();
+            this.headers.putAll(headers);
+            return this;
+        }
+
+        private RequestSender getRequestSender() {
+            if (url == null)
+                throw new RuntimeException("URL not defined");
+            return requestBuilder.get(url, headers, params);
+        }
+    }
+
+    public static class PostBuilder {
+
+        private RequestBuilder requestBuilder;
+        private String url;
+        private String body;
+        private Map<String, String> params = new HashMap<>();
+        private Map<String, String> headers = new HashMap<>();
+
+        private PostBuilder(RequestBuilder requestBuilder) {
+            this.requestBuilder = requestBuilder;
+        }
+
+        public PostBuilder setUrl(String url) {
+            this.url = url;
+            return this;
+        }
+
+        public PostBuilder setBody(String body) {
+            this.body = body;
+            return this;
+        }
+
+        public PostBuilder addParam(String name, String value) {
+            params.put(name, value);
+            return this;
+        }
+
+        public PostBuilder setParams(Map<String, String> params) {
+            this.params.clear();
+            this.params.putAll(params);
+            return this;
+        }
+
+        public PostBuilder addHeader(String name, String value) {
+            headers.put(name, value);
+            return this;
+        }
+
+        public PostBuilder setHeaders(Map<String, String> headers) {
+            this.headers.clear();
+            this.headers.putAll(headers);
+            return this;
+        }
+
+        private RequestSender getRequestSender() {
+            if (url == null)
+                throw new RuntimeException("URL not defined");
+            if (body == null)
+                return requestBuilder.post(url, headers, params);
+            else
+                return requestBuilder.post(url, headers, body);
+        }
+    }
+
     public static class Response {
         private String data;
         private Header[] headers;
+        private int status;
 
-        public Response(String data, Header[] headers) {
+        private Response(String data, Header[] headers, int status) {
             this.data = data;
             this.headers = headers;
+            this.status = status;
         }
 
         public String getData() {
@@ -273,12 +399,24 @@ public class RequestService {
             this.headers = headers;
         }
 
+        public int getStatus() {
+            return status;
+        }
+
+        public void setStatus(int status) {
+            this.status = status;
+        }
+
         public String component1(){
             return data;
         }
 
         public Header[] component2(){
             return headers;
+        }
+
+        public int component3(){
+            return status;
         }
     }
 }

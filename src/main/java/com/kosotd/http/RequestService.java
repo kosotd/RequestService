@@ -31,6 +31,8 @@ import java.util.logging.Logger;
 public class RequestService {
     private static Logger logger = Logger.getLogger(RequestService.class.getName());
 
+    private RequestService() {}
+
     /**
      * начало построения запроса
      * @return класс содержащий методы для построения разных типов com.kosotd.http запросов (get и post)
@@ -149,7 +151,7 @@ public class RequestService {
          * @param body тело запроса
          * @return класс содержащий методы для отправки запросов
          */
-        public RequestSender post(String url, String body) {
+        public RequestSender postWithBody(String url, String body) {
             return post(url, new HashMap<>(), body);
         }
 

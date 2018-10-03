@@ -16,13 +16,18 @@ Usage:
     HttpStatus expectedStatus = HttpStatus.ACCEPTED;
     RequestService.build(timeout).post("http://site.com").send(expectedStatus);
 ```
+```
+    RequestService.Response response = RequestService.build().get(b -> {
+        b.setUrl("http://site.com").addHeader("Authorization", "Bearer 30d8d1a8-e6d8-4798-b907-deeacebf61ea");
+    }).send();
+```
       
 Maven:
 ```
     <dependency>
       <groupId>com.kosotd</groupId>
       <artifactId>request-service</artifactId>
-      <version>1.0</version>
+      <version>1.1</version>
     </dependency>
     ...
     <repository>

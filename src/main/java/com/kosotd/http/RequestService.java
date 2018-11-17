@@ -1,5 +1,6 @@
 package com.kosotd.http;
 
+import com.google.common.net.UrlEscapers;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
 import org.apache.http.NameValuePair;
@@ -17,7 +18,6 @@ import org.omg.CORBA.StringHolder;
 
 import java.io.InputStream;
 import java.io.StringWriter;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -114,7 +114,7 @@ public class RequestService {
             StringHolder delim = new StringHolder("");
             params.forEach((param, value) -> {
                 try {
-                    urlWithParams.append(delim.value).append(param).append("=").append(URLEncoder.encode(value, "UTF-8"));
+                    urlWithParams.append(delim.value).append(param).append("=").append(UrlEscapers.urlFragmentEscaper().escape(value));
                 } catch (Exception e){
                     throw new RuntimeException(e.getMessage());
                 }

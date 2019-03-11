@@ -27,7 +27,7 @@ Maven:
     <dependency>
       <groupId>com.kosotd</groupId>
       <artifactId>request-service</artifactId>
-      <version>1.2</version>
+      <version>1.3</version>
     </dependency>
     ...
     <repository>

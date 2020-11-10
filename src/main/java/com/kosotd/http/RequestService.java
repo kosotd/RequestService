@@ -196,17 +196,27 @@ public class RequestService {
          * @param headers хидеры
          * @return класс содержащий методы для отправки запросов
          */
-        public RequestSender post(String url, Map<String, String> headers, Map<String, String> params) {
+        public RequestSender post(String url, Map<String, String> headers, Map<String, String> params, String charset) {
             try {
                 HttpPost post = new HttpPost(url);
                 headers.forEach(post::setHeader);
                 List<NameValuePair> paramsList = new ArrayList<>();
                 params.forEach((s, s2) -> paramsList.add(new BasicNameValuePair(s, s2)));
-                post.setEntity(new UrlEncodedFormEntity(paramsList));
+                UrlEncodedFormEntity entity;
+                if (charset == null) {
+                    entity = new UrlEncodedFormEntity(paramsList);
+                } else {
+                    entity = new UrlEncodedFormEntity(paramsList, charset);
+                }
+                post.setEntity(entity);
                 return new RequestSender(httpRequestTimeout, post);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        public RequestSender post(String url, Map<String, String> headers, Map<String, String> params) {
+            return post(url, headers, params, null);
         }
     }
 
